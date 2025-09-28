@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="hi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Orders - Digital Store</title>
+  <style>
+    /* Use the same styles as admin.html for consistency */
+    :root{
+      --bg:#0b0620;
+      --card:#0f0b20;
+      --accent1: #7c3aed;
+      --accent2: #ff3cac;
+      --accent3: #2de0ff;
+      --text:#e9e7ff;
+      --muted:#b9b7d6;
+      --shadow: 0 10px 30px rgba(2,2,10,0.6);
+    }
+    *{box-sizing:border-box;font-family:Inter,system-ui,Arial,sans-serif}
+    body{height:100%;margin:0;background:
+      radial-gradient(1200px 400px at 10% 10%, rgba(124,58,237,0.12), transparent 10%),
+      radial-gradient(800px 300px at 90% 80%, rgba(45,224,255,0.06), transparent 8%),
+      var(--bg); color:var(--text); -webkit-font-smoothing:antialiased;}
+    .wrap{max-width:1100px;margin:28px auto;padding:20px;}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:14px;padding:18px;box-shadow:var(--shadow);border:1px solid rgba(255,255,255,0.03)}
+    .orders-table{width:100%;border-collapse:collapse;margin-top:15px;}
+    .orders-table th, .orders-table td{padding:12px 15px;border-bottom:1px solid rgba(255,255,255,0.05);text-align:left;}
+    .orders-table th{color:var(--accent3);font-weight:700;}
+    .orders-table tr:hover{background:rgba(255,255,255,0.02);}
+    .btn{
+      padding:10px 14px;border-radius:10px;border:none;cursor:pointer;font-weight:600;
+      background: linear-gradient(90deg,var(--accent1),var(--accent2)); color:#fff; box-shadow:0 6px 18px rgba(124,58,237,0.18)
+    }
+    .note{color:var(--muted); text-align: center; padding: 20px;}
+    .danger{background:linear-gradient(90deg,#ff5c7c,#ff6f9c);color:white}
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1 style="color:var(--accent2);">Sales Orders History</h1>
+    <p style="color:var(--muted);">Realtime order data from your customers.</p>
+
+    <div id="authMessage" class="card" style="margin-top: 20px;">
+        <h3 style="margin:0; color: var(--accent2);">Admin Access Required</h3>
+        <p style="color: var(--muted);">Please login to view order history.</p>
+        <button class="btn" id="loginBtn" style="margin-top:10px;">Login with Google</button>
+    </div>
+
+    <div id="ordersContent" class="card hidden">
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+             <button class="btn danger" id="logoutBtn">Logout</button>
+             <a class="btn" href="index.html">← Go to Admin</a>
+        </div>
+        <table class="orders-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Product ID</th>
+                    <th>Customer Name</th>
+                    <th>Customer Phone</th>
+                </tr>
+            </thead>
+            <tbody id="ordersTableBody">
+            </tbody>
+        </table>
+        <div id="noOrdersNote" class="note hidden">No new orders recorded yet.</div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
+    import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
+    
+    // Your LATEST Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyCrtplmwrLhu39KNbDGLmETk0gB2R9aJh0",
+      authDomain: "md-fx-studio.firebaseapp.com",
+      projectId: "md-fx-studio",
+      storageBucket: "md-fx-studio.firebasestorage.app",
+      messagingSenderId: "376817060805",
+      appId: "1:376817060805:web:5641abc073eabfc06219ac"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
+
+    const APP_ID = "md-fx-studio";
+    
+    const ordersTableBody = document.getElementById('ordersTableBody');
+    const noOrdersNote = document.getElementById('noOrdersNote');
+    const ordersContent = document.getElementById('ordersContent');
+    const authMessage = document.getElementById('authMessage');
+    const loginBtn = document.getElementById('loginBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+
+    let currentUser = null;
+
+    onAuthStateChanged(auth, (user) => {
+        currentUser = user;
+        if (currentUser) {
+            authMessage.classList.add('hidden');
+            ordersContent.classList.remove('hidden');
+            setupOrdersListener();
+        } else {
+            authMessage.classList.remove('hidden');
+            ordersContent.classList.add('hidden');
+        }
+    });
+
+    loginBtn.addEventListener('click', async () => {
+        try {
+            await signInWithPopup(auth, provider);
+        } catch (error) {
+            console.error("Login failed:", error);
+            alert("Login failed! Check Firebase console.");
+        }
+    });
+
+    logoutBtn.addEventListener('click', async () => {
+        await signOut(auth);
+    });
+
+    function setupOrdersListener() {
+        if (!currentUser) return;
+        const ordersRef = collection(db, 'artifacts', APP_ID, 'users', currentUser.uid, 'orders');
+        onSnapshot(ordersRef, (querySnapshot) => {
+            const orders = [];
+            querySnapshot.forEach(doc => {
+                orders.push({ id: doc.id, ...doc.data() });
+            });
+            renderOrders(orders);
+        }, (error) => console.error("Error loading orders:", error));
+    }
+
+    function renderOrders(orders) {
+        ordersTableBody.innerHTML = '';
+        if (orders.length === 0) {
+            noOrdersNote.classList.remove('hidden');
+            return;
+        }
+        noOrdersNote.classList.add('hidden');
+        orders.forEach(order => {
+            const row = document.createElement('tr');
+            const date = order.createdAt ? new Date(order.createdAt.toDate()).toLocaleDateString() : 'N/A';
+            row.innerHTML = `
+                <td>${date}</td>
+                <td>${order.productId || 'N/A'}</td>
+                <td>${order.name || 'Anonymous'}</td>
+                <td>${order.phone || 'N/A'}</td>
+            `;
+            ordersTableBody.appendChild(row);
+        });
+    }
+  </script>
+</body>
+</html>
+

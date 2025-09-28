@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="hi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Digital Store - User View</title>
+  <style>
+    :root{
+      --bg:#070418;
+      --card:#0f0b20;
+      --accent1:#7c3aed;
+      --accent2:#ff3cac;
+      --accent3:#2de0ff;
+      --text:#e9e7ff;
+      --muted:#b9b7d6;
+      --shadow: 0 14px 40px rgba(2,2,10,0.6);
+    }
+    *{box-sizing:border-box;font-family:Inter,system-ui,Arial,sans-serif}
+    body{margin:0;background:
+      radial-gradient(900px 300px at 10% 10%, rgba(124,58,237,0.12), transparent 10%),
+      radial-gradient(700px 250px at 90% 80%, rgba(45,224,255,0.06), transparent 8%),
+      var(--bg); color:var(--text); -webkit-font-smoothing:antialiased}
+    .container{max-width:1200px;margin:24px auto;padding:18px}
+    .top{display:flex;align-items:center;justify-content:space-between;gap:12px; flex-wrap: wrap;}
+    .brand{display:flex;gap:12px;align-items:center}
+    .logo{width:56px;height:56px;border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--accent1),var(--accent2));box-shadow:var(--shadow)}
+    .logo img{width:100%;height:100%;object-fit:cover}
+    h1{margin:0;font-size:20px}
+    p.sub{margin:0;color:var(--muted);font-size:13px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:20px;margin-top:24px}
+    @media(max-width:640px){ .grid{grid-template-columns:1fr} }
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,0.03);box-shadow:var(--shadow);transition:transform .18s}
+    .card:hover{transform:translateY(-5px)}
+    .thumb{height:180px;border-radius:10px;overflow:hidden;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.02))}
+    .thumb img{width:100%;height:100%;object-fit:cover}
+    .meta{margin-top:10px}
+    .title{font-weight:800; font-size: 1.2rem;}
+    .desc{color:var(--muted);font-size:13px;margin-top:6px;min-height:38px}
+    .buyrow{display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:8px}
+    .price{font-weight:800;color:var(--accent3)}
+    .offer{color:var(--accent2);font-weight:700;font-size:13px}
+    .buybtn{
+      padding:10px 12px;border-radius:10px;border:none;cursor:pointer;font-weight:800;background:
+      linear-gradient(90deg,var(--accent2),var(--accent3));color:white;box-shadow:0 8px 22px rgba(45,224,255,0.12)
+    }
+    .empty{color:var(--muted);padding:30px;text-align:center;border-radius:12px;background:rgba(255,255,255,0.01)}
+    .badge{padding:8px 12px;border-radius:10px;font-size:14px;background:linear-gradient(90deg,rgba(124,58,237,0.14),rgba(255,60,172,0.08));color:var(--text); text-decoration: none;}
+    .footer{margin-top:24px;text-align:center;color:var(--muted);font-size:13px}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="top">
+      <div class="brand">
+        <div class="logo" id="storeLogo">
+          <img id="storeLogoImg" src="" alt="" style="display:none">
+          <svg id="storeLogoSvg" width="38" height="38" viewBox="0 0 24 24" fill="none" style="opacity:0.8">
+            <rect width="24" height="24" rx="6" fill="url(#g2)"></rect>
+            <defs><linearGradient id="g2" x1="0" x2="1"><stop offset="0" stop-color="#7c3aed"/><stop offset="1" stop-color="#ff3cac"/></linearGradient></defs>
+          </svg>
+        </div>
+        <div>
+          <h1 id="storeTitle">Digital Store</h1>
+          <p class="sub">Browse our premium digital products.</p>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <a class="badge" href="store.html"></a>
+      </div>
+    </div>
+
+    <div id="grid" class="grid"></div>
+
+    <div id="emptyNote" class="empty" style="display:none;">
+      Store khali hai. Products jald hi aayenge!
+    </div>
+
+    <div class="footer">Powered by Firebase Firestore</div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
+    import { getFirestore, collection, onSnapshot, doc } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
+    
+    // CRITICAL: Admin UID for data reading (Uses UID: dd4JnpiP8lVoPVcKqiAM8GHPvvC3)
+    const ADMIN_UID = "fHbjI5f6geTjphatyynWMThqfpC2"; 
+
+    // Your LATEST Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyCrtplmwrLhu39KNbDGLmETk0gB2R9aJh0",
+      authDomain: "md-fx-studio.firebaseapp.com",
+      projectId: "md-fx-studio",
+      storageBucket: "md-fx-studio.firebasestorage.app",
+      messagingSenderId: "376817060805",
+      appId: "1:376817060805:web:5641abc073eabfc06219ac"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const APP_ID = "md-fx-studio";
+
+    const storeTitle = document.getElementById('storeTitle');
+    const storeLogoImg = document.getElementById('storeLogoImg');
+    const storeLogoSvg = document.getElementById('storeLogoSvg');
+    const grid = document.getElementById('grid');
+    const emptyNote = document.getElementById('emptyNote');
+
+    function init() {
+        if (ADMIN_UID === "YOUR_ADMIN_UID_HERE") {
+             emptyNote.textContent = "Configuration Error: Please update ADMIN_UID in user.html script.";
+             emptyNote.style.display = 'block';
+             return;
+        }
+        setupStoreListeners();
+    }
+
+    function setupStoreListeners() {
+        // Settings Listener
+        const storeDocRef = doc(db, 'artifacts', APP_ID, 'users', ADMIN_UID, 'settings', 'store');
+        onSnapshot(storeDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const settings = docSnap.data();
+                storeTitle.textContent = settings.name || 'Digital Store';
+                if (settings.logo) {
+                    storeLogoImg.src = settings.logo;
+                    storeLogoImg.style.display = 'block';
+                    storeLogoSvg.style.display = 'none';
+                } else {
+                    storeLogoImg.style.display = 'none';
+                    storeLogoSvg.style.display = 'block';
+                }
+            }
+        });
+
+        // Products Listener
+        const productsColRef = collection(db, 'artifacts', APP_ID, 'users', ADMIN_UID, 'products');
+        onSnapshot(productsColRef, (querySnapshot) => {
+            const products = [];
+            querySnapshot.forEach(doc => {
+                products.push({ id: doc.id, ...doc.data() });
+            });
+            renderProducts(products);
+        });
+    }
+
+    function renderProducts(products) {
+        grid.innerHTML = '';
+        if (products.length === 0) {
+            emptyNote.style.display = 'block';
+            return;
+        }
+        emptyNote.style.display = 'none';
+        
+        products.forEach(p => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <div class="thumb"><img src="${p.image}" onerror="this.src='https://placehold.co/400x180/2a2a3e/a0a0b0?text=Product+Image'" alt="${p.title}"></div>
+                <div class="meta">
+                    <div class="title">${p.title}</div>
+                    <div class="desc">${p.description}</div>
+                </div>
+                <div class="buyrow">
+                    <div>
+                        <div class="price">₹ ${Number(p.price||0).toLocaleString()}</div>
+                        <div class="offer">${p.offer||''}</div>
+                    </div>
+                    <a href="${p.razor}" target="_blank" class="buybtn">Buy Now</a>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+    }
+
+    init();
+  </script>
+</body>
+</html>
+
